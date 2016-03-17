@@ -33,12 +33,8 @@ def install_key(keyid, keyserver)
 end
 
 def install_local_key(keyfile)
-  cookbook_file keyfile do
-    action :create_if_missing
-    path "/tmp/#{keyfile}"
-  end
   execute "Installing external repository key from #{keyfile}" do
-    command "gpg --no-default-keyring --keyring trustedkeys.gpg --import /tmp/#{keyfile}"
+    command "gpg --no-default-keyring --keyring trustedkeys.gpg --import #{keyfile}"
     user node['aptly']['user']
     group node['aptly']['group']
     environment aptly_env
@@ -51,8 +47,17 @@ action :create do
   elsif !new_resource.keyid.nil? && !new_resource.keyserver.nil?
     install_key(new_resource.keyid, new_resource.keyserver)
   end
-  execute "Creating mirror - #{new_resource.name}" do
-    command "aptly mirror create -filter '#{new_resource.filter}' #{new_resource.name} #{new_resource.uri} #{new_resource.distribution} #{new_resource.component}"
+  opts = ''
+  if new_resource.filter
+    opts += "-filter '#{new_resource.filter}' "
+  end
+  if new_resource.force_components
+    opts += '-force-components '
+  end
+  execute "Create mirror #{new_resource.name}" do
+    command "aptly mirror create #{opts}"\
+            " #{new_resource.name} #{new_resource.uri}"\
+            " #{new_resource.distribution} #{new_resource.component}"
     user node['aptly']['user']
     group node['aptly']['group']
     environment aptly_env
@@ -61,7 +66,7 @@ action :create do
 end
 
 action :update do
-  execute "Updating mirror - #{new_resource.name}" do
+  execute "Update mirror #{new_resource.name}" do
     command "aptly mirror update #{new_resource.name}"
     user node['aptly']['user']
     group node['aptly']['group']
@@ -71,7 +76,7 @@ action :update do
 end
 
 action :drop do
-  execute "Droping mirror - #{new_resource.name}" do
+  execute "Drop mirror #{new_resource.name}" do
     command "aptly mirror drop #{new_resource.name}"
     user node['aptly']['user']
     group node['aptly']['group']
